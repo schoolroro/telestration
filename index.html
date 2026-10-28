@@ -295,14 +295,14 @@ function renderHostReveal(room){
   if(revealSel>=n) revealSel=0;
   const b=revealSel;
   // 체인 구성: 제시어 → content[b][0..T-1]
-  let steps=`<div class="step origin"><span class="slabel">출발 제시어</span><div class="sword">${esc(words[b]||"?")}</div><div class="by">${esc(nameBySeat(b))} 님의 제시어</div></div>`;
+  let steps=`<div class="step origin"><span class="slabel">출발 제시어</span><div class="sword">${esc(words[b]||"?")}</div><div class="who">🏁 ${esc(nameBySeat(b))}</div></div>`;
   for(let r=0;r<T;r++){
     const actorSeat=((b+r)%n);
     const c=content[b]&&content[b][r];
     steps+=`<div class="connector">↓</div>`;
-    if(!c) steps+=`<div class="step"><span class="slabel">${r+1}라운드</span><div class="by" style="margin-top:8px">(제출 안 함)</div></div>`;
-    else if(c.type==="draw") steps+=`<div class="step"><span class="slabel">${r+1}라운드 · 그림</span><img src="${c.value}"><div class="by">${esc(nameBySeat(actorSeat))}</div></div>`;
-    else steps+=`<div class="step"><span class="slabel">${r+1}라운드 · 추측</span><div class="sword">${esc(c.value)}</div><div class="by">${esc(nameBySeat(actorSeat))}</div></div>`;
+    if(!c) steps+=`<div class="step"><span class="slabel">${r+1}라운드</span><div class="who miss">✏️ ${esc(nameBySeat(actorSeat))} · 제출 안 함</div></div>`;
+    else if(c.type==="draw") steps+=`<div class="step"><span class="slabel">${r+1}라운드 · 그림</span><div class="who">✏️ ${esc(nameBySeat(actorSeat))}</div><img src="${c.value}"></div>`;
+    else steps+=`<div class="step"><span class="slabel">${r+1}라운드 · 추측</span><div class="who">💬 ${esc(nameBySeat(actorSeat))}</div><div class="sword">${esc(c.value)}</div></div>`;
   }
   const opts=list.map(p=>`<option value="${p.seat}" ${p.seat===revealSel?"selected":""}>${esc(p.name)} 의 그림</option>`).join("");
   $("hostMain").innerHTML=
