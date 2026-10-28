@@ -99,6 +99,8 @@
   .step.origin{background:var(--navy);border-color:var(--navy);} .step.origin .slabel{color:#201a0a;background:var(--gold);} .step.origin .sword{color:#fff;}
   .step img{width:100%;max-height:360px;object-fit:contain;border-radius:10px;margin-top:9px;background:#fff;}
   .step .by{font-size:11.5px;color:var(--sub);margin-top:6px;}
+  .step .who{display:inline-flex;align-items:center;gap:5px;margin-top:9px;font-size:14px;font-weight:700;color:var(--navy);background:#f1f4fa;border:1px solid var(--line);border-radius:999px;padding:5px 12px;}
+  .step .who.miss{color:var(--sub);background:#faf6f2;}
   .connector{text-align:center;color:#c2cad8;font-size:18px;margin:-4px 0;}
 </style>
 </head>
@@ -162,11 +164,20 @@ const db = getDatabase(app);
 
 /* ===== 게임 설정 ===== */
 const WORDS = [
-  "인권","세계시민","문화 상대주의","지속가능한 발전","사회 정의","공정 무역",
-  "기후 변화","난민","다문화 사회","복지 국가","민주주의","환경 보호",
-  "빈부 격차","인구 고령화","도시화","세계화","공동체","자원봉사",
-  "양성 평등","국제 협력","분배 정의","시민 참여","미세먼지","디지털 격차",
-  "저출산","공공의 이익","표현의 자유","지구촌","생태계","인간 존엄성"
+  // --- 통합사회1 ---
+  "행복","삶의 질","정주 환경","기후","지형","열대 우림","사막화","지구 온난화",
+  "자연재해","생태중심주의","인간중심주의","산업화","도시화","인구 집중",
+  "교통의 발달","정보화","정보 격차","가상 공간","공정 여행",
+  // --- 통합사회2 ---
+  "인권","인간 존엄성","천부 인권","시민 혁명","참정권","사회권","헌법","기본권",
+  "사회적 소수자","청소년 노동권","자본주의","시장 경제","수요와 공급","경쟁",
+  "국제 분업","무역","자산 관리","금융","저축","신용","사회 정의","분배 정의",
+  "공정 무역","빈부 격차","공간 불평등","사회 복지","복지 국가","문화","문화권",
+  "문화 상대주의","문화 변동","다문화 사회","세계화","지구촌","세계시민","국제기구",
+  "국제 협력","국제 갈등","평화","남북 분단","통일","난민","인구 고령화","저출산",
+  "지속가능한 발전","기후 변화","환경 보호","생태계","미세먼지","디지털 격차",
+  // --- 공통 시민성 ---
+  "민주주의","공동체","자원봉사","양성 평등","시민 참여","공공의 이익","표현의 자유"
 ];
 const MAX_TURNS = 12;                 // 그림 6번(= 12턴)이 목표
 const COLORS = ["#1b2a4a","#c8503f","#2f9e6b","#c9a24b","#6b4fb0","#111"];
@@ -243,16 +254,17 @@ async function hostStart(room){
 function renderHostPlaying(room){
   const meta=room.meta, r=meta.round, n=meta.n, T=meta.T;
   const list=playerArr(room).sort((a,b)=>a.seat-b.seat);
-  const content=room.content||{};
+  const content=room.content||{}; const live=room.live||{};
   // 이번 라운드에 각 '행위자(seat p)'가 맡은 책 b=(p-r+n)%n
   let done=0; const cells=list.map(p=>{
     const b=((p.seat-r)%n+n)%n;
     const sub=(content[b]&&content[b][r])||null;
     if(sub) done++;
     let inner;
-    if(!sub) inner=`<div class="st wait">그리는 중…</div>`;
-    else if(sub.type==="draw") inner=`<div class="st done">완료</div><img src="${sub.value}">`;
-    else inner=`<div class="st done">완료</div><div class="gw">“${esc(sub.value)}”</div>`;
+    if(sub && sub.type==="draw") inner=`<div class="st done">완료</div><img src="${sub.value}">`;
+    else if(sub) inner=`<div class="st done">완료</div><div class="gw">“${esc(sub.value)}”</div>`;
+    else if(isDraw(r) && live[b]) inner=`<div class="st wait">그리는 중…</div><img src="${live[b]}">`;
+    else inner=`<div class="st wait">${isDraw(r)?"그리는 중…":"생각 중…"}</div>`;
     return `<div class="pcell"><div class="nm">${esc(p.name)}</div>${inner}</div>`;
   }).join("");
   const kind=isDraw(r)?"그리기":"맞히기";
@@ -268,7 +280,12 @@ function renderHostPlaying(room){
 async function hostNext(meta){
   const nr=meta.round+1;
   if(nr>=meta.T){ await update(ref(db,"rooms/"+hostCode+"/meta"),{status:"reveal"}); }
-  else{ await update(ref(db,"rooms/"+hostCode+"/meta"),{round:nr}); }
+  else{
+    const u={};
+    u["rooms/"+hostCode+"/meta/round"]=nr;
+    u["rooms/"+hostCode+"/live"]=null;   // 지난 라운드 진행중 그림 미리보기 정리
+    await update(ref(db),u);
+  }
 }
 let revealSel=0;
 function renderHostReveal(room){
@@ -303,6 +320,8 @@ function renderHostReveal(room){
 
 /* ================= 학생(플레이어) ================= */
 let myCode=null,myUid=null,myName=null,mySeat=null,playerUnsub=null,lastRoundRendered=-9,submittedRound=-9;
+let liveTimer=null,liveDirty=false;
+function stopLive(){ if(liveTimer){clearInterval(liveTimer);liveTimer=null;} liveDirty=false; }
 $("joinBtn").onclick=joinRoom;
 async function joinRoom(){
   const code=$("joinCode").value.replace(/\D/g,"").slice(0,4);
@@ -324,17 +343,20 @@ function renderPlayer(room){
   const meta=room.meta||{}; const st=meta.status;
   const me=(room.players||{})[myUid];
   if(!me){ // 방이 닫혔거나 삭제됨
+    stopLive();
     $("playerMain").innerHTML=`<div class="waitbox"><div class="big">🔚</div><h2>방이 종료됐어요</h2><p>선생님이 방을 닫았습니다.</p><button class="btn ghost" data-home>처음으로</button></div>`;
     $("playerMain").querySelector("[data-home]").onclick=()=>location.reload();return;
   }
   mySeat=(me.seat!==undefined)?me.seat:null;
   if(st==="lobby"){
+    stopLive();
     const cnt=Object.keys(room.players||{}).length;
     $("playerMain").innerHTML=`<div class="waitbox"><div class="big">⏳</div><h2>입장 완료!</h2>`+
       `<p><b>${esc(myName)}</b> 님, 시작을 기다려 주세요.</p><p class="muted">현재 ${cnt}명 입장</p></div>`;
     lastRoundRendered=-9;submittedRound=-9;return;
   }
   if(st==="reveal"){
+    stopLive();
     $("playerMain").innerHTML=`<div class="waitbox"><div class="big">🎉</div><h2>게임 끝!</h2><p>앞 화면(선생님 화면)을 함께 봐요.</p></div>`;return;
   }
   if(st==="playing"){
@@ -355,6 +377,7 @@ function countDone(room,r){const c=room.content||{};let d=0;Object.keys(c).forEa
 function renderTask(room){
   const meta=room.meta, r=meta.round, n=meta.n, T=meta.T;
   const b=((mySeat-r)%n+n)%n;                      // 내가 이번에 맡은 '책'
+  stopLive();
   const prev = r===0 ? {type:"word",value:(room.words||{})[b]}
                      : ((room.content||{})[b]||{})[r-1];
   const header=`<div class="top"><span class="t">${r+1}라운드 · ${isDraw(r)?"그리기":"맞히기"}</span>`+
@@ -369,6 +392,11 @@ function renderTask(room){
       `<button class="tool" id="clrBtn">🗑️ 전체</button><div class="swatches" id="swatches"></div></div>`+
       `<button class="btn primary block" id="submitDraw">완성 · 제출</button>`;
     setupCanvas();
+    // 그리는 중 실시간 미리보기 — 2.5초마다 변화가 있으면 교사 화면으로 전송
+    liveDirty=false;
+    liveTimer=setInterval(()=>{
+      if(liveDirty){ liveDirty=false; set(ref(db,"rooms/"+myCode+"/live/"+b),exportLive()).catch(()=>{}); }
+    },2500);
     $("submitDraw").onclick=()=>submit(b,r,{type:"draw",value:exportDrawing()});
   }else{
     $("playerMain").innerHTML=header+
@@ -386,9 +414,11 @@ function doGuess(b,r){
   submit(b,r,{type:"guess",value:g});
 }
 async function submit(b,r,data){
+  stopLive();
   data.bySeat=mySeat; data.byName=myName;
   submittedRound=r;
   await set(ref(db,"rooms/"+myCode+"/content/"+b+"/"+r),data);
+  remove(ref(db,"rooms/"+myCode+"/live/"+b)).catch(()=>{}); // 제출하면 미리보기 정리
   // 대기 화면
   const snap=await get(ref(db,"rooms/"+myCode)); renderPlayer(snap.val()||{});
 }
@@ -414,14 +444,21 @@ function renderSwatches(){const box=$("swatches");box.innerHTML="";COLORS.forEac
   b.onclick=()=>{penColor=c;eraser=false;setTool("pen");renderSwatches();};box.appendChild(b);});}
 function setTool(t){eraser=(t==="eraser");$("penBtn").classList.toggle("on",t==="pen");$("eraBtn").classList.toggle("on",t==="eraser");renderSwatches();}
 function pos(e){const r=pad.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};}
-function down(e){e.preventDefault();drawing=true;const p=pos(e);lx=p.x;ly=p.y;ctx.fillStyle=eraser?"#fff":penColor;ctx.beginPath();ctx.arc(p.x,p.y,eraser?11:2,0,7);ctx.fill();}
-function move(e){if(!drawing)return;e.preventDefault();const p=pos(e);ctx.strokeStyle=eraser?"#fff":penColor;ctx.lineWidth=eraser?22:4;ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.stroke();lx=p.x;ly=p.y;}
+function down(e){e.preventDefault();drawing=true;liveDirty=true;const p=pos(e);lx=p.x;ly=p.y;ctx.fillStyle=eraser?"#fff":penColor;ctx.beginPath();ctx.arc(p.x,p.y,eraser?11:2,0,7);ctx.fill();}
+function move(e){if(!drawing)return;e.preventDefault();liveDirty=true;const p=pos(e);ctx.strokeStyle=eraser?"#fff":penColor;ctx.lineWidth=eraser?22:4;ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.stroke();lx=p.x;ly=p.y;}
 function exportDrawing(){
   const cssW=pad.clientWidth,cssH=pad.clientHeight,max=480;
   const tw=Math.min(max,cssW),th=Math.round(cssH*tw/cssW);
   const t=document.createElement("canvas");t.width=tw;t.height=th;
   const c=t.getContext("2d");c.fillStyle="#fff";c.fillRect(0,0,tw,th);c.drawImage(pad,0,0,tw,th);
   return t.toDataURL("image/png");
+}
+function exportLive(){ // 진행중 미리보기용: 더 작고 가볍게(JPEG)
+  const cssW=pad.clientWidth,cssH=pad.clientHeight,max=220;
+  const tw=Math.min(max,cssW),th=Math.round(cssH*tw/cssW);
+  const t=document.createElement("canvas");t.width=tw;t.height=th;
+  const c=t.getContext("2d");c.fillStyle="#fff";c.fillRect(0,0,tw,th);c.drawImage(pad,0,0,tw,th);
+  return t.toDataURL("image/jpeg",0.5);
 }
 
 $("landFoot").textContent="달서고등학교 사회과";
