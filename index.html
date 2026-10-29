@@ -6,14 +6,17 @@
 <title>통합사회 텔레스트레이션</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=Jua&display=swap" rel="stylesheet">
 <style>
   :root{--navy:#1b2a4a;--navy2:#2e4473;--gold:#c9a24b;--gold-deep:#9c7a24;
-    --ink:#232c3a;--sub:#6b7686;--line:#e7ebf2;--bg:#f7f9fc;--card:#fff;--ok:#2f9e6b;--warn:#c8503f;
+    --ink:#232c3a;--sub:#6b7686;--line:#dfeaf1;--bg:#f2f9fb;--card:#fff;--ok:#2f9e6b;--warn:#c8503f;
     box-sizing:border-box;padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0);}
   *,*::before,*::after{box-sizing:inherit}
   html,body{height:100%}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;
+  body{margin:0;color:var(--ink);font-family:"Gothic A1","Noto Sans KR",system-ui,sans-serif;
+    background:
+      radial-gradient(130% 55% at 50% 0%, #cfeafa 0%, rgba(207,234,250,0) 60%),
+      linear-gradient(180deg,#e2f2fa 0,#ecf7fb 360px,#f2f9fb 100%) no-repeat var(--bg);
     -webkit-font-smoothing:antialiased;line-height:1.6;-webkit-tap-highlight-color:transparent;}
   .wrap{max-width:720px;margin:0 auto;padding:0 16px 30px;min-height:100%;display:flex;flex-direction:column;}
   .view{display:none;flex:1;flex-direction:column;} .view.on{display:flex;}
