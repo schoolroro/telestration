@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=Jua&display=swap" rel="stylesheet">
 <style>
-  :root{--navy:#1b2a4a;--navy2:#2e4473;--gold:#c9a24b;--gold-deep:#9c7a24;
+  :root{--navy:#0f5f8f;--navy2:#1a86c4;--gold:#16b3c4;--gold-deep:#0d7f8e;
     --ink:#232c3a;--sub:#6b7686;--line:#dfeaf1;--bg:#f2f9fb;--card:#fff;--ok:#2f9e6b;--warn:#c8503f;
     box-sizing:border-box;padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0);}
   *,*::before,*::after{box-sizing:inherit}
@@ -20,36 +20,36 @@
     -webkit-font-smoothing:antialiased;line-height:1.6;-webkit-tap-highlight-color:transparent;}
   .wrap{max-width:720px;margin:0 auto;padding:0 16px 30px;min-height:100%;display:flex;flex-direction:column;}
   .view{display:none;flex:1;flex-direction:column;} .view.on{display:flex;}
-  h1,h2,h3{letter-spacing:-.01em;margin:0;}
+  h1,h2,h3{letter-spacing:-.01em;margin:0;font-family:"Jua",sans-serif;font-weight:400;}
 
-  .btn{border:none;border-radius:14px;font-family:inherit;font-weight:700;cursor:pointer;font-size:16px;
+  .btn{border:none;border-radius:14px;font-family:"Jua",sans-serif;font-weight:400;cursor:pointer;font-size:17px;
     padding:15px 22px;transition:filter .15s,opacity .15s;}
-  .btn.primary{background:var(--navy);color:#fff;} .btn.gold{background:var(--gold);color:#201a0a;}
+  .btn.primary{background:var(--navy);color:#fff;} .btn.gold{background:var(--gold);color:#04323a;}
   .btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--line);}
   .btn.block{display:block;width:100%;} .btn:active{filter:brightness(.94);} .btn:disabled{opacity:.4;}
   .input{width:100%;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:15px 16px;
-    font-family:inherit;font-size:18px;font-weight:700;color:var(--navy);text-align:center;}
+    font-family:"Jua",sans-serif;font-size:18px;font-weight:400;color:var(--navy);text-align:center;}
   .input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(27,42,74,.12);}
 
   /* landing */
   #landing{justify-content:center;text-align:center;padding-top:30px;}
   #landing .badge{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--gold-deep);
     background:rgba(201,162,75,.15);border-radius:7px;padding:4px 11px;}
-  #landing h1{font-size:30px;color:var(--navy);margin:16px 0 6px;}
+  #landing h1{font-size:34px;color:var(--navy);margin:16px 0 6px;}
   #landing p{color:var(--sub);font-size:14.5px;margin:0 0 26px;}
   #landing .pick{display:grid;gap:14px;max-width:420px;margin:0 auto;width:100%;}
   #landing .pick .btn{padding:22px;font-size:18px;}
   #landing .pick .sub{display:block;font-size:12.5px;font-weight:500;opacity:.8;margin-top:4px;}
 
   .top{display:flex;align-items:center;justify-content:space-between;padding:16px 0 10px;gap:10px;}
-  .top .t{font-weight:800;color:var(--navy);font-size:18px;}
+  .top .t{font-family:"Jua",sans-serif;font-weight:400;color:var(--navy);font-size:20px;}
   .top .rt{font-size:13px;color:var(--sub);}
   .back{background:none;border:none;color:var(--sub);font-family:inherit;font-size:13px;cursor:pointer;padding:12px 0 2px;}
   .back:hover{color:var(--navy);}
 
   .codebox{text-align:center;background:var(--navy);color:#fff;border-radius:18px;padding:20px;margin:6px 0 14px;}
   .codebox .lbl{font-size:12px;letter-spacing:.1em;color:#cdd7ea;font-weight:700;}
-  .codebox .code{font-size:46px;font-weight:800;letter-spacing:.1em;margin:4px 0;}
+  .codebox .code{font-family:"Jua",sans-serif;font-size:46px;font-weight:400;letter-spacing:.1em;margin:4px 0;}
   .codebox .hint{font-size:12.5px;color:#aebbd4;}
 
   .plist{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px;}
@@ -70,11 +70,11 @@
 
   .promptcard{background:var(--navy);color:#fff;border-radius:18px;padding:22px;text-align:center;margin:6px 0 12px;}
   .promptcard .plabel{font-size:12px;letter-spacing:.1em;color:#cdd7ea;font-weight:700;}
-  .promptcard .pword{font-size:30px;font-weight:800;margin:8px 0 2px;}
+  .promptcard .pword{font-family:"Jua",sans-serif;font-size:32px;font-weight:400;margin:8px 0 2px;}
   .promptcard.guess{background:#fff;color:var(--ink);border:1px solid var(--line);}
   .promptcard.guess .plabel{color:var(--sub);}
   .promptcard img{width:100%;max-height:300px;object-fit:contain;border-radius:12px;background:#fff;}
-  .taskline{font-weight:700;color:var(--navy);font-size:15px;margin:2px 0 10px;text-align:center;}
+  .taskline{font-family:"Jua",sans-serif;font-weight:400;color:var(--navy);font-size:16px;margin:2px 0 10px;text-align:center;}
 
   .canvaswrap{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;}
   canvas{display:block;width:100%;touch-action:none;background:#fff;}
@@ -98,11 +98,11 @@
   .chain{display:flex;flex-direction:column;gap:12px;margin-top:8px;}
   .step{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;}
   .step .slabel{font-size:11.5px;font-weight:800;letter-spacing:.04em;color:var(--gold-deep);background:rgba(201,162,75,.15);border-radius:6px;padding:3px 9px;display:inline-block;}
-  .step .sword{font-size:24px;font-weight:800;color:var(--navy);margin-top:9px;}
+  .step .sword{font-family:"Jua",sans-serif;font-size:26px;font-weight:400;color:var(--navy);margin-top:9px;}
   .step.origin{background:var(--navy);border-color:var(--navy);} .step.origin .slabel{color:#201a0a;background:var(--gold);} .step.origin .sword{color:#fff;}
   .step img{width:100%;max-height:360px;object-fit:contain;border-radius:10px;margin-top:9px;background:#fff;}
   .step .by{font-size:11.5px;color:var(--sub);margin-top:6px;}
-  .step .who{display:inline-flex;align-items:center;gap:5px;margin-top:9px;font-size:14px;font-weight:700;color:var(--navy);background:#f1f4fa;border:1px solid var(--line);border-radius:999px;padding:5px 12px;}
+  .step .who{display:inline-flex;align-items:center;gap:5px;margin-top:9px;font-size:14.5px;font-family:"Jua",sans-serif;font-weight:400;color:var(--navy);background:#f1f4fa;border:1px solid var(--line);border-radius:999px;padding:5px 12px;}
   .step .who.miss{color:var(--sub);background:#faf6f2;}
   .connector{text-align:center;color:#c2cad8;font-size:18px;margin:-4px 0;}
 </style>
