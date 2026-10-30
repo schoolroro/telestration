@@ -54,6 +54,10 @@
 
   .plist{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px;}
   .ptag{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:700;color:var(--navy);}
+  button.ptag.kick{font-family:inherit;cursor:pointer;transition:all .12s;}
+  button.ptag.kick span{color:#b9c4d2;margin-left:2px;}
+  button.ptag.kick:hover{border-color:var(--warn);color:var(--warn);}
+  button.ptag.kick:hover span{color:var(--warn);}
   .muted{color:var(--sub);font-size:13.5px;}
 
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:12px 0;}
@@ -182,7 +186,7 @@ const WORDS = [
   // --- 공통 시민성 ---
   "민주주의","공동체","자원봉사","양성 평등","시민 참여","공공의 이익","표현의 자유"
 ];
-const MAX_TURNS = 12;                 // 그림 6번(= 12턴)이 목표
+const MAX_TURNS = 10;                 // 그림 5번(= 10라운드)이 목표
 const COLORS = ["#1b2a4a","#c8503f","#2f9e6b","#c9a24b","#6b4fb0","#111"];
 const isDraw = r => r%2===0;          // 짝수 라운드=그리기, 홀수=맞히기
 
@@ -199,6 +203,9 @@ document.querySelectorAll("[data-home]").forEach(b=>b.onclick=()=>location.reloa
 // URL ?room=코드 로 학생 입장 편의
 const urlRoom=new URLSearchParams(location.search).get("room");
 if(urlRoom){ $("joinCode").value=urlRoom.replace(/\D/g,"").slice(0,4); view("join"); }
+try{ const last=JSON.parse(localStorage.getItem("tele_last")||"null");
+  if(last){ if(!$("joinCode").value) $("joinCode").value=last.code||""; $("joinName").value=last.name||""; }
+}catch(e){}
 
 /* ================= 교사(호스트) ================= */
 let hostCode=null, hostUnsub=null;
@@ -231,9 +238,16 @@ function renderHostLobby(room){
     `<div class="codebox"><div class="lbl">학생 입장 코드</div><div class="code">${hostCode}</div>`+
     `<div class="hint">학생들은 이 사이트에서 ‘학생용 · 입장하기’ → 코드 입력</div></div>`+
     `<div class="muted" style="margin-bottom:6px">입장한 학생 <b>${list.length}</b>명</div>`+
-    `<div class="plist">${list.map(p=>`<span class="ptag">${esc(p.name)}</span>`).join("")||'<span class="muted">아직 없음…</span>'}</div>`+
-    `<div class="notice">학생이 다 들어오면 시작하세요. 시작 후 들어온 학생은 참여할 수 없어요. (권장 4명 이상)</div>`+
+    `<div class="plist">${list.map(p=>`<button class="ptag kick" data-uid="${p.uid}" title="퇴장시키기">${esc(p.name)} <span>✕</span></button>`).join("")||'<span class="muted">아직 없음…</span>'}</div>`+
+    `<div class="notice">이름을 누르면 그 학생을 <b>퇴장</b>시킬 수 있어요(중복·오타 정리용).<br>
+      다 들어오면 시작하세요. 시작 뒤에는 새로 참여할 수 없지만, <b>접속이 끊긴 학생은 같은 이름으로 다시 들어오면</b> 이어서 할 수 있어요. (권장 4명 이상)</div>`+
     `<button class="btn primary block" id="startBtn" ${list.length<2?"disabled":""}>게임 시작 (${list.length}명)</button>`;
+  document.querySelectorAll(".ptag.kick").forEach(b=>{
+    b.onclick=async()=>{
+      const nm=b.textContent.replace("✕","").trim();
+      if(confirm(nm+" 학생을 퇴장시킬까요?")) await remove(ref(db,"rooms/"+hostCode+"/players/"+b.dataset.uid));
+    };
+  });
   $("startBtn") && ($("startBtn").onclick=()=>hostStart(room));
 }
 async function hostStart(room){
@@ -247,6 +261,17 @@ async function hostStart(room){
     updates["rooms/"+hostCode+"/players/"+p.uid+"/seat"]=seat;
     words[seat]=deck[seat%deck.length];
   });
+  // 라운드별 이동량(offset). 0라운드는 자기 제시어, 이후는 서로 다른 값으로 랜덤 배치
+  // → 매 라운드 '앞 사람'이 달라지고, 같은 책을 두 번 받지 않는다.
+  // 후보를 여러 번 뽑아, '받는 상대'가 가장 적게 겹치는 배치를 고른다
+  let offsets=null, best=-1;
+  for(let t=0;t<60;t++){
+    const cand=[0].concat(shuffle(Array.from({length:n-1},(_,i)=>i+1)).slice(0,T-1));
+    const deltas=new Set();
+    for(let r=1;r<cand.length;r++) deltas.add(((cand[r]-cand[r-1])%n+n)%n);
+    if(deltas.size>best){ best=deltas.size; offsets=cand; if(best===T-1) break; }
+  }
+  updates["rooms/"+hostCode+"/meta/offsets"]=offsets;
   updates["rooms/"+hostCode+"/words"]=words;
   updates["rooms/"+hostCode+"/meta/status"]="playing";
   updates["rooms/"+hostCode+"/meta/round"]=0;
@@ -258,9 +283,10 @@ function renderHostPlaying(room){
   const meta=room.meta, r=meta.round, n=meta.n, T=meta.T;
   const list=playerArr(room).sort((a,b)=>a.seat-b.seat);
   const content=room.content||{}; const live=room.live||{};
-  // 이번 라운드에 각 '행위자(seat p)'가 맡은 책 b=(p-r+n)%n
+  const offs=meta.offsets||[]; const off=(offs[r]!==undefined?offs[r]:r);
+  // 이번 라운드에 각 '행위자(seat p)'가 맡은 책 b=(p-off+n)%n
   let done=0; const cells=list.map(p=>{
-    const b=((p.seat-r)%n+n)%n;
+    const b=((p.seat-off)%n+n)%n;
     const sub=(content[b]&&content[b][r])||null;
     if(sub) done++;
     let inner;
@@ -300,7 +326,8 @@ function renderHostReveal(room){
   // 체인 구성: 제시어 → content[b][0..T-1]
   let steps=`<div class="step origin"><span class="slabel">출발 제시어</span><div class="sword">${esc(words[b]||"?")}</div><div class="who">🏁 ${esc(nameBySeat(b))}</div></div>`;
   for(let r=0;r<T;r++){
-    const actorSeat=((b+r)%n);
+    const offR=(meta.offsets&&meta.offsets[r]!==undefined)?meta.offsets[r]:r;
+    const actorSeat=((b+offR)%n);
     const c=content[b]&&content[b][r];
     steps+=`<div class="connector">↓</div>`;
     if(!c) steps+=`<div class="step"><span class="slabel">${r+1}라운드</span><div class="who miss">✏️ ${esc(nameBySeat(actorSeat))} · 제출 안 함</div></div>`;
@@ -334,10 +361,20 @@ async function joinRoom(){
   if(!name){$("joinErr").textContent="이름을 입력하세요.";return;}
   const metaSnap=await get(ref(db,"rooms/"+code+"/meta"));
   if(!metaSnap.exists()){$("joinErr").textContent="그런 방이 없어요. 코드를 확인하세요.";return;}
-  if(metaSnap.val().status!=="lobby"){$("joinErr").textContent="이미 시작된 방이에요. 참여할 수 없어요.";return;}
-  const pref=push(ref(db,"rooms/"+code+"/players"));
-  await set(pref,{name,joinedAt:Date.now()});
-  myCode=code;myUid=pref.key;myName=name;
+  const status=metaSnap.val().status;
+  // 같은 이름이 이미 있으면 그 자리로 '재진입' (튕겼다 들어온 경우)
+  const psSnap=await get(ref(db,"rooms/"+code+"/players"));
+  const ps=psSnap.val()||{};
+  const mine=Object.keys(ps).find(k=>(ps[k].name||"").trim()===name);
+  if(mine){
+    myCode=code;myUid=mine;myName=ps[mine].name;
+  }else{
+    if(status!=="lobby"){$("joinErr").textContent="이미 시작된 방이에요. (중간 참여 불가 — 하던 학생은 쓰던 이름 그대로 입력하세요)";return;}
+    const pref=push(ref(db,"rooms/"+code+"/players"));
+    await set(pref,{name,joinedAt:Date.now()});
+    myCode=code;myUid=pref.key;myName=name;
+  }
+  try{ localStorage.setItem("tele_last",JSON.stringify({code,name})); }catch(e){}
   view("player");
   if(playerUnsub) playerUnsub();
   playerUnsub=onValue(ref(db,"rooms/"+code),snap=>renderPlayer(snap.val()||{}));
@@ -345,9 +382,13 @@ async function joinRoom(){
 function renderPlayer(room){
   const meta=room.meta||{}; const st=meta.status;
   const me=(room.players||{})[myUid];
-  if(!me){ // 방이 닫혔거나 삭제됨
+  if(!me){
     stopLive();
-    $("playerMain").innerHTML=`<div class="waitbox"><div class="big">🔚</div><h2>방이 종료됐어요</h2><p>선생님이 방을 닫았습니다.</p><button class="btn ghost" data-home>처음으로</button></div>`;
+    const closed = !meta.status;   // 방 자체가 사라졌으면 종료, 아니면 퇴장 조치
+    $("playerMain").innerHTML=`<div class="waitbox"><div class="big">${closed?"🔚":"👋"}</div>`+
+      `<h2>${closed?"방이 종료됐어요":"방에서 나왔어요"}</h2>`+
+      `<p>${closed?"선생님이 방을 닫았습니다.":"선생님이 퇴장시켰어요. 다시 들어오려면 아래를 누르세요."}</p>`+
+      `<button class="btn ghost" data-home>처음으로</button></div>`;
     $("playerMain").querySelector("[data-home]").onclick=()=>location.reload();return;
   }
   mySeat=(me.seat!==undefined)?me.seat:null;
@@ -379,7 +420,8 @@ function countDone(room,r){const c=room.content||{};let d=0;Object.keys(c).forEa
 
 function renderTask(room){
   const meta=room.meta, r=meta.round, n=meta.n, T=meta.T;
-  const b=((mySeat-r)%n+n)%n;                      // 내가 이번에 맡은 '책'
+  const offs=meta.offsets||[]; const off=(offs[r]!==undefined?offs[r]:r);
+  const b=((mySeat-off)%n+n)%n;                    // 내가 이번에 맡은 '책'
   stopLive();
   const prev = r===0 ? {type:"word",value:(room.words||{})[b]}
                      : ((room.content||{})[b]||{})[r-1];
