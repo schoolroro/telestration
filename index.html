@@ -85,6 +85,7 @@
   .tools{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;align-items:center;}
   .tool{background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px 13px;font-family:inherit;font-weight:700;font-size:13.5px;color:var(--navy);cursor:pointer;}
   .tool.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .tool:disabled{opacity:.35;cursor:default;}
   .swatches{display:flex;gap:6px;margin-left:auto;}
   .sw{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);}
   .sw.on{box-shadow:0 0 0 2px var(--navy);}
@@ -172,22 +173,27 @@ const db = getDatabase(app);
 /* ===== 게임 설정 ===== */
 const WORDS = [
   // --- 통합사회1 ---
-  "행복","삶의 질","정주 환경","기후","지형","열대 우림","사막화","지구 온난화",
-  "자연재해","생태중심주의","인간중심주의","산업화","도시화","인구 집중",
-  "교통의 발달","정보화","정보 격차","가상 공간","공정 여행",
+  "행복","정주 환경","기후","지형","열대 우림","사막화",
+  "지구 온난화","자연재해","생태중심주의","인간중심주의","산업화","도시화",
+  "정보화","정보 격차","공정 여행","계절풍","고산 지대","점이 지대",
+  "플랜테이션 농업","탄소 중립","디지털 탄소 발자국",
   // --- 통합사회2 ---
-  "인권","인간 존엄성","천부 인권","시민 혁명","참정권","사회권","헌법","기본권",
-  "사회적 소수자","청소년 노동권","자본주의","시장 경제","수요와 공급","경쟁",
-  "국제 분업","무역","자산 관리","금융","저축","신용","사회 정의","분배 정의",
-  "공정 무역","빈부 격차","공간 불평등","사회 복지","복지 국가","문화","문화권",
-  "문화 상대주의","문화 변동","다문화 사회","세계화","지구촌","세계시민","국제기구",
-  "국제 협력","국제 갈등","평화","남북 분단","통일","난민","인구 고령화","저출산",
-  "지속가능한 발전","기후 변화","환경 보호","생태계","미세먼지","디지털 격차",
+  "인권","인간 존엄성","천부 인권","시민 혁명","참정권","사회권",
+  "헌법","기본권","사회적 소수자","청소년 노동권","자본주의","시장 경제",
+  "수요와 공급","경쟁","국제 분업","무역","자산 관리","금융",
+  "저축","신용","사회 정의","분배 정의","공정 무역","빈부 격차",
+  "공간 불평등","사회 복지","복지 국가","문화","문화권","문화 상대주의",
+  "문화 변동","다문화 사회","세계화","지구촌","세계시민","국제기구",
+  "국제 협력","국제 갈등","평화","남북 분단","통일","난민",
+  "인구 고령화","저출산","지속가능한 발전","기후 변화","생태계","미세먼지",
+  "디지털 격차","크리스트교","간접 전파","공자","국내 총생산(GDP)","문화 융합",
+  "자극 전파","자문화 중심주의","다국적 기업","롤스","신자유주의","애덤 스미스",
+  "이산가족","인플레이션","차티스트 운동","합계 출산율",
   // --- 공통 시민성 ---
-  "민주주의","공동체","자원봉사","양성 평등","시민 참여","공공의 이익","표현의 자유"
+  "민주주의","공동체","자원봉사","양성 평등","시민 참여","공공의 이익"
 ];
 const MAX_TURNS = 10;                 // 그림 5번(= 10라운드)이 목표
-const COLORS = ["#1b2a4a","#c8503f","#2f9e6b","#c9a24b","#6b4fb0","#111"];
+const COLORS = ["#1b2432","#1f7fd0","#d04a3c","#2f9e6b","#e3a32a","#7a53c0"]; // 검정·파랑·빨강·초록·노랑·보라
 const isDraw = r => r%2===0;          // 짝수 라운드=그리기, 홀수=맞히기
 
 const $=id=>document.getElementById(id);
@@ -350,6 +356,7 @@ function renderHostReveal(room){
 
 /* ================= 학생(플레이어) ================= */
 let myCode=null,myUid=null,myName=null,mySeat=null,playerUnsub=null,lastRoundRendered=-9,submittedRound=-9;
+let lastSubmit=null, keepStrokes=null, keepGuess="", keepRound=-9;  // 제출 취소 시 복원용
 let liveTimer=null,liveDirty=false;
 function stopLive(){ if(liveTimer){clearInterval(liveTimer);liveTimer=null;} liveDirty=false; }
 $("joinBtn").onclick=joinRoom;
@@ -414,7 +421,24 @@ function renderPlayer(room){
 function showWait(room){
   const meta=room.meta, done=countDone(room,meta.round), n=meta.n;
   $("playerMain").innerHTML=`<div class="waitbox"><div class="big">✅</div><h2>제출 완료!</h2>`+
-    `<p>다른 친구들을 기다리는 중…</p><p class="muted">${done} / ${n}명 제출</p></div>`;
+    `<p>다른 친구들을 기다리는 중…</p><p class="muted">${done} / ${n}명 제출</p>`+
+    `<button class="btn ghost" id="cancelBtn" style="margin-top:16px">✏️ 제출 취소하고 고치기</button>`+
+    `<p class="muted" style="font-size:12.5px">선생님이 다음 라운드로 넘기기 전까지 고칠 수 있어요.</p></div>`;
+  const cb=$("cancelBtn"); if(cb) cb.onclick=cancelSubmit;
+}
+async function cancelSubmit(){
+  if(!lastSubmit) return;
+  const {b,r}=lastSubmit;
+  const snap=await get(ref(db,"rooms/"+myCode));
+  const room=snap.val()||{};
+  if(!room.meta || room.meta.round!==r){   // 이미 다음 라운드로 넘어갔으면 취소 불가
+    alert("이미 다음 라운드로 넘어가서 고칠 수 없어요.");
+    renderPlayer(room); return;
+  }
+  await remove(ref(db,"rooms/"+myCode+"/content/"+b+"/"+r));
+  submittedRound=-9; lastRoundRendered=-9; lastSubmit=null;
+  const snap2=await get(ref(db,"rooms/"+myCode));
+  renderPlayer(snap2.val()||{});
 }
 function countDone(room,r){const c=room.content||{};let d=0;Object.keys(c).forEach(b=>{if(c[b]&&c[b][r])d++;});return d;}
 
@@ -423,6 +447,7 @@ function renderTask(room){
   const offs=meta.offsets||[]; const off=(offs[r]!==undefined?offs[r]:r);
   const b=((mySeat-off)%n+n)%n;                    // 내가 이번에 맡은 '책'
   stopLive();
+  if(keepRound!==r){ keepStrokes=null; keepGuess=""; }   // 라운드가 바뀌면 보관분 폐기
   const prev = r===0 ? {type:"word",value:(room.words||{})[b]}
                      : ((room.content||{})[b]||{})[r-1];
   const header=`<div class="top"><span class="t">${r+1}라운드 · ${isDraw(r)?"그리기":"맞히기"}</span>`+
@@ -434,9 +459,11 @@ function renderTask(room){
       `<div class="taskline">✏️ 이 단어를 그림으로 그려주세요</div>`+
       `<div class="canvaswrap"><canvas id="pad"></canvas></div>`+
       `<div class="tools"><button class="tool on" id="penBtn">✏️ 펜</button><button class="tool" id="eraBtn">🩹 지우개</button>`+
-      `<button class="tool" id="clrBtn">🗑️ 전체</button><div class="swatches" id="swatches"></div></div>`+
+      `<button class="tool" id="undoBtn" disabled>↩️ 되돌리기</button><button class="tool" id="clrBtn">🗑️ 전체</button>`+
+      `<div class="swatches" id="swatches"></div></div>`+
       `<button class="btn primary block" id="submitDraw">완성 · 제출</button>`;
     setupCanvas();
+    if(keepRound===r && keepStrokes){ strokes=keepStrokes.slice(); redraw(); updateUndo(); }  // 취소 후 복원
     // 그리는 중 실시간 미리보기 — 2.5초마다 변화가 있으면 교사 화면으로 전송
     liveDirty=false;
     liveTimer=setInterval(()=>{
@@ -449,6 +476,7 @@ function renderTask(room){
       `<div class="taskline">🤔 이 그림은 무슨 단어일까요?</div>`+
       `<input class="input" id="guessInput" maxlength="20" placeholder="단어를 적어주세요">`+
       `<div class="spacer"></div><button class="btn primary block" id="submitGuess" style="margin-top:14px">제출</button>`;
+    if(keepRound===r && keepGuess) $("guessInput").value=keepGuess;   // 취소 후 복원
     setTimeout(()=>$("guessInput")&&$("guessInput").focus(),150);
     $("guessInput").addEventListener("keydown",e=>{if(e.key==="Enter")doGuess(b,r);});
     $("submitGuess").onclick=()=>doGuess(b,r);
@@ -461,7 +489,8 @@ function doGuess(b,r){
 async function submit(b,r,data){
   stopLive();
   data.bySeat=mySeat; data.byName=myName;
-  submittedRound=r;
+  submittedRound=r; lastSubmit={b,r}; keepRound=r;
+  if(data.type==="draw") keepStrokes=strokes.slice(); else keepGuess=data.value;
   await set(ref(db,"rooms/"+myCode+"/content/"+b+"/"+r),data);
   remove(ref(db,"rooms/"+myCode+"/live/"+b)).catch(()=>{}); // 제출하면 미리보기 정리
   // 대기 화면
@@ -470,27 +499,57 @@ async function submit(b,r,data){
 
 /* ===== 그리기 캔버스 ===== */
 let ctx,pad,dpr,penColor,eraser,drawing=false,lx=0,ly=0;
+let strokes=[],cur=null;              // 그은 획을 기록해 되돌리기에 사용
+const PEN_W=4, ERASER_W=22;
 function setupCanvas(){
   pad=$("pad");
   const w=pad.parentElement.clientWidth, h=Math.round(w*0.72);
   dpr=window.devicePixelRatio||1;
   pad.width=w*dpr;pad.height=h*dpr;pad.style.height=h+"px";
   ctx=pad.getContext("2d");ctx.scale(dpr,dpr);
-  ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);ctx.lineCap="round";ctx.lineJoin="round";
-  penColor=COLORS[0];eraser=false;renderSwatches();setTool("pen");
+  ctx.lineCap="round";ctx.lineJoin="round";
+  strokes=[];cur=null;
+  penColor=COLORS[0];eraser=false;renderSwatches();setTool("pen");redraw();
   ["mousedown","touchstart"].forEach(ev=>pad.addEventListener(ev,down,{passive:false}));
   ["mousemove","touchmove"].forEach(ev=>pad.addEventListener(ev,move,{passive:false}));
-  ["mouseup","mouseleave","touchend","touchcancel"].forEach(ev=>pad.addEventListener(ev,()=>drawing=false));
+  ["mouseup","mouseleave","touchend","touchcancel"].forEach(ev=>pad.addEventListener(ev,up));
   $("penBtn").onclick=()=>setTool("pen");$("eraBtn").onclick=()=>setTool("eraser");
-  $("clrBtn").onclick=()=>{const cw=pad.clientWidth,ch=pad.clientHeight;ctx.fillStyle="#fff";ctx.fillRect(0,0,cw,ch);};
+  $("undoBtn").onclick=undo;
+  $("clrBtn").onclick=()=>{ strokes.push({clear:true}); redraw(); liveDirty=true; updateUndo(); };
 }
+function updateUndo(){ const b=$("undoBtn"); if(b) b.disabled = strokes.length===0; }
+function undo(){ if(!strokes.length) return; strokes.pop(); redraw(); liveDirty=true; updateUndo(); }
+function wipe(){ const w=pad.clientWidth,h=pad.clientHeight; ctx.fillStyle="#fff"; ctx.fillRect(0,0,w,h); }
+function paint(s){
+  if(s.clear){ wipe(); return; }
+  ctx.strokeStyle=s.eraser?"#fff":s.color; ctx.fillStyle=s.eraser?"#fff":s.color;
+  ctx.lineWidth=s.eraser?ERASER_W:PEN_W;
+  const p=s.pts;
+  if(p.length===1){ ctx.beginPath();ctx.arc(p[0].x,p[0].y,s.eraser?ERASER_W/2:PEN_W/2,0,6.2832);ctx.fill();return; }
+  ctx.beginPath(); ctx.moveTo(p[0].x,p[0].y);
+  for(let i=1;i<p.length;i++) ctx.lineTo(p[i].x,p[i].y);
+  ctx.stroke();
+}
+function redraw(){ wipe(); for(const s of strokes) paint(s); }
 function renderSwatches(){const box=$("swatches");box.innerHTML="";COLORS.forEach(c=>{const b=document.createElement("div");
   b.className="sw"+(c===penColor&&!eraser?" on":"");b.style.background=c;
   b.onclick=()=>{penColor=c;eraser=false;setTool("pen");renderSwatches();};box.appendChild(b);});}
 function setTool(t){eraser=(t==="eraser");$("penBtn").classList.toggle("on",t==="pen");$("eraBtn").classList.toggle("on",t==="eraser");renderSwatches();}
 function pos(e){const r=pad.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};}
-function down(e){e.preventDefault();drawing=true;liveDirty=true;const p=pos(e);lx=p.x;ly=p.y;ctx.fillStyle=eraser?"#fff":penColor;ctx.beginPath();ctx.arc(p.x,p.y,eraser?11:2,0,7);ctx.fill();}
-function move(e){if(!drawing)return;e.preventDefault();liveDirty=true;const p=pos(e);ctx.strokeStyle=eraser?"#fff":penColor;ctx.lineWidth=eraser?22:4;ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.stroke();lx=p.x;ly=p.y;}
+function down(e){
+  e.preventDefault();drawing=true;liveDirty=true;
+  const p=pos(e);lx=p.x;ly=p.y;
+  cur={color:penColor,eraser,pts:[{x:p.x,y:p.y}]};
+  ctx.fillStyle=eraser?"#fff":penColor;
+  ctx.beginPath();ctx.arc(p.x,p.y,eraser?ERASER_W/2:PEN_W/2,0,6.2832);ctx.fill();
+}
+function move(e){
+  if(!drawing||!cur)return;e.preventDefault();liveDirty=true;
+  const p=pos(e);cur.pts.push({x:p.x,y:p.y});
+  ctx.strokeStyle=eraser?"#fff":penColor;ctx.lineWidth=eraser?ERASER_W:PEN_W;
+  ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.stroke();lx=p.x;ly=p.y;
+}
+function up(){ if(drawing&&cur){ strokes.push(cur); updateUndo(); } drawing=false; cur=null; }
 function exportDrawing(){
   const cssW=pad.clientWidth,cssH=pad.clientHeight,max=480;
   const tw=Math.min(max,cssW),th=Math.round(cssH*tw/cssW);
